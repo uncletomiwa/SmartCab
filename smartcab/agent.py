@@ -1,5 +1,5 @@
 import random
-from environment import Agent, Environment
+from environment import Agent, Environment, DummyAgent
 from planner import RoutePlanner
 from simulator import Simulator
 
@@ -40,7 +40,7 @@ def run():
 
     # Set up environment and agent
     e = Environment()  # create environment (also adds some dummy traffic)
-    a = e.create_agent(LearningAgent)  # create agent
+    a = e.create_agent(DummyAgent)  # create agent
     e.set_primary_agent(a, enforce_deadline=False)  # set agent to track
 
     # Now simulate it
