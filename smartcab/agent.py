@@ -16,17 +16,20 @@ class LearningAgent(Agent):
         self.A = {}
         self.alpha = 0.1
         self.gamma = 0.9
-        self.total = 0
+        self.positiveReward = 0
+        self.negativeReward = 0
         # TODO: Initialize any additional variables here
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
         # self.alpha *= 0.9
         # self.gamma /=0.9
-        print "LearningAgent.update(): gamma = {}, alpha = {}, total={}" \
-            .format(self.alpha, self.gamma, self.total)  # [debug]
+        total = self.positiveReward + self.negativeReward
+        print "LearningAgent.update(): gamma = {}, alpha = {}, positive={}, negative={}, total={}" \
+            .format(self.alpha, self.gamma, self.positiveReward, self.negativeReward, total)
 
-        self.total = 0
+        self.positiveReward = 0
+        self.negativeReward = 0
 
     def get_action(self):
         if self.s not in self.Q.keys():
@@ -54,7 +57,10 @@ class LearningAgent(Agent):
 
         # Execute action and get reward
         r = self.env.act(self, a)
-        self.total += r
+        if r > 0:
+            self.positiveReward += r
+        else:
+            self.negativeReward += r
 
         # TODO: Learn policy based on state, action, reward
         inputs = self.env.sense(self)
