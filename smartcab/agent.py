@@ -34,6 +34,7 @@ class LearningAgent(Agent):
     def get_action(self):
         if self.s not in self.Q.keys():
             self.Q[self.s] = {None: 1.0, 'forward': 1.0, 'left': 1.0, 'right': 1.0}
+            return random.choice(self.Q[self.s].keys())
 
         return max(self.Q[self.s].iteritems(), key=operator.itemgetter(1))[0]
 
@@ -47,7 +48,6 @@ class LearningAgent(Agent):
         # Gather inputs
         self.next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
         inputs = self.env.sense(self)
-        deadline = self.env.get_deadline(self)
 
         # TODO: Update state
         self.s = (inputs['oncoming'], inputs['light'], inputs['left'], inputs['right'], self.next_waypoint)
