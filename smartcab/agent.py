@@ -12,37 +12,37 @@ class LearningAgent(Agent):
         super(LearningAgent, self).__init__(env)
         self.color = 'red'  # override color
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
-        self.Q = {}
-        self.A = {}
-        self.alpha = 0.1
-        self.gamma = 0.9
+        self.lookup_table = {}
+        self.rewards_table = []
         self.positiveReward = 0
         self.negativeReward = 0
+        self.state = None
+        self.done = False
+        self.action = None
         # TODO: Initialize any additional variables here
 
     def reset(self, destination=None):
-        self.planner.route_to(destination)
-        # self.alpha *= 0.9
-        # self.gamma /=0.9
+        
         total = self.positiveReward + self.negativeReward
-        print "LearningAgent.update(): gamma = {}, alpha = {}, positive={}, negative={}, total={}" \
-            .format(self.alpha, self.gamma, self.positiveReward, self.negativeReward, total)
+        self.rewards_table.append((self.positiveReward, self.negativeReward, total, self.done))
 
+        self.planner.route_to(destination)
         self.positiveReward = 0
         self.negativeReward = 0
+        self.done = False
 
     def get_action(self):
-        if self.s not in self.Q.keys():
-            self.Q[self.s] = {None: 1.0, 'forward': 1.0, 'left': 1.0, 'right': 1.0}
-            return random.choice(self.Q[self.s].keys())
+        if self.state not in self.lookup_table.keys():
+            self.lookup_table[self.state] = {None: 1.0, 'forward': 1.0, 'left': 1.0, 'right': 1.0}
+            return random.choice(self.lookup_table[self.state].keys())
 
-        return max(self.Q[self.s].iteritems(), key=operator.itemgetter(1))[0]
+        return max(self.lookup_table[self.state].iteritems(), key=operator.itemgetter(1))[0]
 
-    def get_max_q(self, s):
-        if s not in self.Q.keys():
-            self.Q[s] = {None: 1.0, 'forward': 1.0, 'left': 1.0, 'right': 1.0}
+    def get_max_q(self, state):
+        if state not in self.lookup_table.keys():
+            self.lookup_table[state] = {None: 1.0, 'forward': 1.0, 'left': 1.0, 'right': 1.0}
 
-        return max(self.Q[s].values())
+        return max(self.lookup_table[state].values())
 
     def update(self, t):
         # Gather inputs
@@ -50,44 +50,48 @@ class LearningAgent(Agent):
         inputs = self.env.sense(self)
 
         # TODO: Update state
-        self.s = (inputs['oncoming'], inputs['light'], inputs['left'], inputs['right'], self.next_waypoint)
+        self.state = (inputs['oncoming'], inputs['light'], inputs['left'], inputs['right'], self.next_waypoint)
 
         # TODO: Select action according to your policy
-        a = self.get_action()
+        self.action = self.get_action()
 
         # Execute action and get reward
-        r = self.env.act(self, a)
-        if r > 0:
-            self.positiveReward += r
+        reward = self.env.act(self, self.action)
+        self.done = self.env.done
+        if reward > 0:
+            self.positiveReward += reward
         else:
-            self.negativeReward += r
+            self.negativeReward += reward
 
         # TODO: Learn policy based on state, action, reward
         inputs = self.env.sense(self)
-        d = (inputs['oncoming'], inputs['light'], inputs['left'], inputs['right'], self.next_waypoint)
-        self.learn_q(a, r, d)
+        self.next_waypoint = self.planner.next_waypoint()
+        next_state = (inputs['oncoming'], inputs['light'], inputs['left'], inputs['right'], self.next_waypoint)
+        self.learn_q(self.action, reward, next_state)
 
         # print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}"\
         #     .format(deadline, inputs, a, r)  # [debug]
 
-    def learn_q(self, a, r, d):
+    def learn_q(self, action, reward, next_state):
         """d: refers to the destination state"""
-        max_q = self.get_max_q(d)
-        self.Q[self.s][a] += self.alpha * (r - self.gamma * max_q - self.Q[self.s][a])
+        max_q = self.get_max_q(next_state)
+        self.lookup_table[self.state][action] += self.alpha * (reward - self.gamma * max_q -
+                                                                  self.lookup_table[self.state][action])
 
 
 def run():
     """Run the agent for a finite number of trials."""
 
     # Set up environment and agent
-    e = Environment()  # create environment (also adds some dummy traffic)
-    a = e.create_agent(LearningAgent)  # create agent
-    e.set_primary_agent(a, enforce_deadline=True)  # set agent to track
+    env = Environment()  # create environment (also adds some dummy traffic)
+    agent = env.create_agent(LearningAgent)  # create agent
+    agent.alpha = 0.9
+    agent.gamma = 0.1
+    env.set_primary_agent(agent, enforce_deadline=True)  # set agent to track
 
     # Now simulate it
-    sim = Simulator(e, update_delay=.1)  # reduce update_delay to speed up simulation
+    sim = Simulator(env, update_delay=0)  # reduce update_delay to speed up simulation
     sim.run(n_trials=100)  # press Esc or close pygame window to quit
-
 
 if __name__ == '__main__':
     run()
